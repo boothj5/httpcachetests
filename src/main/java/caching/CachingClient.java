@@ -1,7 +1,6 @@
 package caching;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.CharSet;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.cache.CacheResponseStatus;
@@ -15,12 +14,12 @@ import org.apache.http.impl.client.cache.CachingHttpClients;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
 import java.util.Map;
 
 public class CachingClient {
 
-    public static final String PATH = "/some/thing";
+    public static final String SOME_THING_PATH = "/some/thing";
+    public static final String SOME_THING_ELSE_PATH = "/some/thing/else";
 
     private final CloseableHttpClient cachingClient;
 
@@ -42,10 +41,10 @@ public class CachingClient {
                 .build();
     }
 
-    public void get(Map<String, String> headers) throws IOException {
+    public void getWithHeaders(String path, Map<String, String> headers) throws IOException {
         HttpCacheContext context = HttpCacheContext.create();
 
-        HttpGet httpget = new HttpGet("http://localhost:8089" + PATH);
+        HttpGet httpget = new HttpGet("http://localhost:8089" + path);
         if (headers != null) {
             for (String key : headers.keySet()) {
                 httpget.setHeader(key, headers.get(key));
@@ -66,8 +65,8 @@ public class CachingClient {
         }
     }
 
-    public void get() throws IOException {
-        this.get(null);
+    public void get(String path) throws IOException {
+        this.getWithHeaders(path, null);
     }
 
     public CacheResponseStatus getResponseStatus() {
