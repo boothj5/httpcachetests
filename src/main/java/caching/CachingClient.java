@@ -77,7 +77,7 @@ public class CachingClient {
         return body;
     }
 
-    private void printHeaders(Header[] headers, String type) {
+    private static void printHeaders(Header[] headers, String type) {
         if (headers.length != 0) {
             System.out.println(type + " headers:");
             for (Header getHeader : headers) {

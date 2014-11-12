@@ -37,9 +37,7 @@ public class CachingClientTest {
     @Test
     public void hasCacheMissOnOneRequest() throws IOException {
         givenResponseWithBody(SOME_THING_PATH, RESPONSE_BODY1);
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -48,15 +46,11 @@ public class CachingClientTest {
     @Test
     public void hasCacheMissFollowedByCacheValidationWhenNoCacheControlHeaderInResponse() throws IOException {
         givenResponseWithBody(SOME_THING_PATH, RESPONSE_BODY1);
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBody(SOME_THING_PATH, RESPONSE_BODY2);
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(VALIDATED, RESPONSE_BODY2, client);
 
         verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -65,15 +59,11 @@ public class CachingClientTest {
     @Test
     public void secondRequestIsCacheHitWhenMaxAge3SecondsInResponseAndTwoImmediateRequestsMade() throws IOException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 3");
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "max-age = 3");
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_HIT, RESPONSE_BODY1, client);
 
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -82,16 +72,12 @@ public class CachingClientTest {
     @Test
     public void secondRequestIsCacheValidationWhenMaxAge2SecondsInResponseAndTwoRequestsMade3SecondsApart() throws IOException, InterruptedException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 2");
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "max-age = 2");
-
         Thread.sleep(3000);
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(VALIDATED, RESPONSE_BODY2, client);
 
         verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -100,17 +86,12 @@ public class CachingClientTest {
     @Test
     public void secondRequestIsCacheMissWhenMaxAge2SecondsInResponseAndTwoRequestsMadeWithNoCacheSet() throws IOException, InterruptedException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 2");
-
-        Map<String, String> requestHeaders = new HashMap<>();
-        requestHeaders.put("Cache-Control", "no-cache");
+        Map<String, String> requestHeaders = headersWithCacheControl("no-cache");
         client.getWithHeaders(SOME_THING_PATH, requestHeaders);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "max-age = 2");
-
         client.getWithHeaders(SOME_THING_PATH, requestHeaders);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY2, client);
 
         verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -119,17 +100,12 @@ public class CachingClientTest {
     @Test
     public void secondRequestIsCacheMissWhenMaxAge2SecondsInResponseAndTwoRequestsMadeWithNoStoreSet() throws IOException, InterruptedException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 2");
-
-        Map<String, String> requestHeaders = new HashMap<>();
-        requestHeaders.put("Cache-Control", "no-store");
+        Map<String, String> requestHeaders = headersWithCacheControl("no-store");
         client.getWithHeaders(SOME_THING_PATH, requestHeaders);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "max-age = 2");
-
         client.getWithHeaders(SOME_THING_PATH, requestHeaders);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY2, client);
 
         verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
@@ -138,18 +114,20 @@ public class CachingClientTest {
     @Test
     public void callingDifferentPathDoesNotCache() throws IOException, InterruptedException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 3");
-
         client.get(SOME_THING_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
 
         givenResponseWithBodyAndCacheControl(SOME_THING_ELSE_PATH, RESPONSE_BODY3, "max-age = 3");
-
         client.get(SOME_THING_ELSE_PATH);
-
         assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY3, client);
 
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_ELSE_PATH)));
+    }
+
+    private static Map<String, String> headersWithCacheControl(String cacheControlValue) {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Cache-Control", cacheControlValue);
+        return headers;
     }
 }
