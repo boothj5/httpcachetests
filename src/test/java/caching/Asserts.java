@@ -9,4 +9,8 @@ public class Asserts {
         assertEquals(expectedCacheStatus, actualClient.getResponseStatus());
         assertEquals(expectedResposeBody, actualClient.getBody());
     }
+
+    public static void assertCacheStatus(CacheResponseStatus expectedCacheStatus, CachingClient actualClient) {
+        assertEquals(expectedCacheStatus, actualClient.getResponseStatus());
+    }
 }

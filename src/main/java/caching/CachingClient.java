@@ -44,17 +44,17 @@ public class CachingClient {
     public void getWithHeaders(String path, Map<String, String> headers) throws IOException {
         HttpCacheContext context = HttpCacheContext.create();
 
-        HttpGet httpget = new HttpGet("http://localhost:8089" + path);
+        HttpGet request = new HttpGet("http://localhost:8089" + path);
         if (headers != null) {
             for (String key : headers.keySet()) {
-                httpget.setHeader(key, headers.get(key));
+                request.setHeader(key, headers.get(key));
             }
         }
 
-        System.out.println(httpget);
-        printHeaders(httpget.getAllHeaders(), "Request");
+        System.out.println(request);
+        printHeaders(request.getAllHeaders(), "Request");
 
-        try (CloseableHttpResponse response = cachingClient.execute(httpget, context)) {
+        try (CloseableHttpResponse response = cachingClient.execute(request, context)) {
             responseStatus = context.getCacheResponseStatus();
 
             HttpEntity entity = response.getEntity();
@@ -80,8 +80,8 @@ public class CachingClient {
     private static void printHeaders(Header[] headers, String type) {
         if (headers.length != 0) {
             System.out.println(type + " headers:");
-            for (Header getHeader : headers) {
-                System.out.println("  " + getHeader.getName() + ": " + getHeader.getValue());
+            for (Header header : headers) {
+                System.out.println("  " + header.getName() + ": " + header.getValue());
             }
         } else {
             System.out.println("No " + type + " headers");

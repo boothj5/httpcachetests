@@ -11,6 +11,12 @@ public class Givens {
                         .withBody(body)));
     }
 
+    public static void givenResponseWithStatus(String path, int status) {
+        givenThat(get(urlEqualTo(path))
+                .willReturn(aResponse()
+                        .withStatus(0)));
+    }
+
     public static void givenResponseWithBodyAndCacheControl(String path, String body, String controlHeaderValue) {
         givenThat(get(urlEqualTo(path))
                 .willReturn(aResponse()

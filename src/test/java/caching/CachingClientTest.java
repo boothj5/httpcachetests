@@ -1,7 +1,7 @@
 package caching;
 
+import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -10,10 +10,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static caching.Asserts.assertCacheStatus;
+import static caching.Asserts.assertCacheStatusAndBody;
+import static caching.Givens.givenResponseWithBody;
+import static caching.Givens.givenResponseWithBodyAndCacheControl;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
-
-import static caching.Givens.*;
-import static caching.Asserts.*;
 import static org.apache.http.client.cache.CacheResponseStatus.*;
 
 public class CachingClientTest {
@@ -112,6 +113,23 @@ public class CachingClientTest {
     }
 
     @Test
+    public void thirdRequestIsCacheMissWhenMaxAge5SecondsAndMadeWithNoCache() throws IOException, InterruptedException {
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 5");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "max-age = 5");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_HIT, RESPONSE_BODY1, client);
+
+        Map<String, String> requestHeaders = headersWithCacheControl("no-cache");
+        client.getWithHeaders(SOME_THING_PATH, requestHeaders);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY2, client);
+
+        verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    @Test
     public void callingDifferentPathDoesNotCache() throws IOException, InterruptedException {
         givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 3");
         client.get(SOME_THING_PATH);
@@ -124,6 +142,96 @@ public class CachingClientTest {
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
         verify(1, getRequestedFor(urlEqualTo(SOME_THING_ELSE_PATH)));
     }
+
+    @Test
+    public void cahceMissWhenReponseReturnMustRevalidateWithNoCacheNoStore() throws IOException, InterruptedException {
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "must-revalidate,no-cache,no-store");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "must-revalidate,no-cache,no-store");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY2, client);
+
+        verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    @Test
+    public void alwaysRevalidatedWhenReponseReturnMustRevalidateOnly() throws IOException, InterruptedException {
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "must-revalidate");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY2, "must-revalidate");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(VALIDATED, RESPONSE_BODY2, client);
+
+        verify(2, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    // Failures
+
+    @Test
+    public void noResponseReturnsCachedResponseWhenNoHeaders() throws IOException, InterruptedException {
+        givenResponseWithBody(SOME_THING_PATH, RESPONSE_BODY1);
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        stubFor(get(urlEqualTo(SOME_THING_PATH))
+                .willReturn(aResponse().withFault(Fault.EMPTY_RESPONSE)));
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_HIT, RESPONSE_BODY1, client);
+
+        verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    @Test
+    public void noResponseReturnsCacheHitWhenMaxAgeNotPassed() throws IOException, InterruptedException {
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 5");
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        stubFor(get(urlEqualTo(SOME_THING_PATH))
+                .willReturn(aResponse().withFault(Fault.EMPTY_RESPONSE)));
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_HIT, RESPONSE_BODY1, client);
+
+        verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    @Test
+    public void noResponseReturnsCacheMissWhenMaxAgePassed() throws IOException, InterruptedException {
+        givenResponseWithBodyAndCacheControl(SOME_THING_PATH, RESPONSE_BODY1, "max-age = 2");
+
+        client.get(SOME_THING_PATH);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        stubFor(get(urlEqualTo(SOME_THING_PATH))
+                .willReturn(aResponse().withFault(Fault.EMPTY_RESPONSE)));
+        Thread.sleep(3000);
+        client.get(SOME_THING_PATH);
+
+        assertCacheStatus(CACHE_HIT, client);
+
+        verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+    @Test
+    public void noResponseReturnsErrorWhenNoHeaders() throws IOException, InterruptedException {
+        givenResponseWithBody(SOME_THING_PATH, RESPONSE_BODY1);
+        Map<String, String> requestHeaders = headersWithCacheControl("no-cache");
+        client.getWithHeaders(SOME_THING_PATH, requestHeaders);
+        assertCacheStatusAndBody(CACHE_MISS, RESPONSE_BODY1, client);
+
+        stubFor(get(urlEqualTo(SOME_THING_PATH))
+                .willReturn(aResponse().withFault(Fault.EMPTY_RESPONSE)));
+        client.getWithHeaders(SOME_THING_PATH, requestHeaders);
+        assertCacheStatus(CACHE_MISS, client);
+
+        verify(1, getRequestedFor(urlEqualTo(SOME_THING_PATH)));
+    }
+
+
 
     private static Map<String, String> headersWithCacheControl(String cacheControlValue) {
         Map<String, String> headers = new HashMap<>();
